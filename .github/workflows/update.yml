@@ -1,0 +1,47 @@
+name: Update CWE catalogue
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.25'
+
+      - name: Regenerate
+        run: go generate ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Open PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet cwe.json; then
+            echo "cwe.json unchanged"
+            exit 0
+          fi
+          n=$(jq length cwe.json)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c update-cwe-catalogue
+          git add cwe.json
+          git commit -m "Update CWE catalogue ($n entries)"
+          git push -f origin update-cwe-catalogue
+          gh pr create \
+            --title "Update CWE catalogue ($n entries)" \
+            --body "Regenerated from ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} against cwec_latest.xml.zip." \
+            --base main --head update-cwe-catalogue || true
