@@ -13,6 +13,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      # persist-credentials is intentionally left at its default (true): the
+      # later `git push` needs the token in .git/config. The only code that
+      # runs with it present is this repo's own `go generate` and `go test`.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go

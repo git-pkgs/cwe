@@ -22,7 +22,13 @@ import (
 	"strings"
 )
 
-const source = "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip"
+const (
+	source = "https://cwe.mitre.org/data/xml/cwec_latest.xml.zip"
+	// maxXML caps both the HTTP body and the decompressed XML entry so a
+	// compromised or redirected download cannot OOM the Actions runner. The
+	// real cwec_latest.xml is ~15 MB; 100 MB leaves room for growth.
+	maxXML = 100 << 20
+)
 
 type entry struct {
 	Name        string `json:"name"`
@@ -123,7 +129,7 @@ func fetch() ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("fetch %s: %s", source, resp.Status)
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxXML))
 	if err != nil {
 		return nil, err
 	}
@@ -132,14 +138,18 @@ func fetch() ([]byte, error) {
 		return nil, fmt.Errorf("open zip: %w", err)
 	}
 	for _, f := range zr.File {
-		if strings.HasSuffix(f.Name, ".xml") {
-			rc, err := f.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer func() { _ = rc.Close() }()
-			return io.ReadAll(rc)
+		if !strings.HasSuffix(f.Name, ".xml") {
+			continue
 		}
+		if f.UncompressedSize64 > maxXML {
+			return nil, fmt.Errorf("xml entry too large: %d bytes", f.UncompressedSize64)
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = rc.Close() }()
+		return io.ReadAll(io.LimitReader(rc, maxXML))
 	}
 	return nil, fmt.Errorf("no .xml in %s", source)
 }
