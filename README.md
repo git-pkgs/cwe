@@ -42,4 +42,4 @@ fetches the latest XML from cwe.mitre.org and rewrites `cwe.json`. The output is
 
 ## License
 
-MIT. The CWE catalogue is © The MITRE Corporation and used under its [terms of use](https://cwe.mitre.org/about/termsofuse.html).
+[MIT](LICENSE). The CWE catalogue is © The MITRE Corporation and used under its [terms of use](https://cwe.mitre.org/about/termsofuse.html).
